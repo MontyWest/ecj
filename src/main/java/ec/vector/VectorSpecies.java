@@ -191,6 +191,8 @@ public class VectorSpecies extends Species
     public final static String P_SEGMENT_START = "start";
     public final static String P_SEGMENT_END = "end";
     public final static String P_SEGMENT = "segment";
+    public final static String P_MODULO_NUM = "modulo-num";
+    public final static String P_MODULO = "modulo";
     public final static String P_DUPLICATE_RETRIES = "duplicate-retries";
 
 
@@ -353,6 +355,8 @@ public class VectorSpecies extends Species
         // this might get called twice, I don't think it's a big deal
         setupGenome(state, base);
 
+        
+        
 
         // MUTATION
 
@@ -433,6 +437,35 @@ public class VectorSpecies extends Species
         
 
 
+        /**
+         * Edit by Monty West
+         */
+        // MODULO VALUES
+        if (state.parameters.exists(base.push(P_MODULO_NUM), def.push(P_MODULO_NUM)))
+        	{
+        	if (dynamicInitialSize)
+                state.output.warnOnce("Using dynamic initial sizing, but modulo min/max gene declarations.  This is probably wrong.  You probably want to use global min/max declarations.",
+                    base.push(P_MODULO_NUM), def.push(P_MODULO_NUM));
+        	
+        	int moduloNum = state.parameters.getIntWithDefault(base.push(P_MODULO_NUM), def.push(P_MODULO_NUM), 0);
+        	
+        	if (moduloNum == 0)
+        		state.output.fatal(
+                        "Modulo by zero is undefined. " + P_MODULO_NUM + " must be non-zero.", 
+                        base.push(P_MODULO_NUM), 
+                        def.push(P_MODULO_NUM));
+        	
+        	if ((genomeSize % moduloNum) != 0)
+        		state.output.fatal(
+        				 P_MODULO_NUM + " must divide genome size.", 
+                        base.push(P_MODULO_NUM), 
+                        def.push(P_MODULO_NUM));
+        	
+        	initializeGenomeByModuloIndices(state, base, def, moduloNum);
+        	
+        	}
+        state.output.exitIfErrors();
+        
 
         
         // SEGMENTS
@@ -480,8 +513,8 @@ public class VectorSpecies extends Species
             }
         state.output.exitIfErrors();          
 
-            
-            
+        
+        
         // PER-GENE VALUES
 
         for (int x = 0; x < genomeSize; x++)
@@ -490,12 +523,17 @@ public class VectorSpecies extends Species
             }
         state.output.exitIfErrors();          
               
-            
-            
+        dynamicParameterOverride(state, base, def);
+        state.output.exitIfErrors();          
+
         // NOW call super.setup(...), which will in turn set up the prototypical individual
         super.setup(state,base);
         }
 
+    protected void dynamicParameterOverride(EvolutionState state, Parameter base, Parameter def)
+    {
+    	//None by default, for subclasses
+    }
 
     /** Called when VectorSpecies is setting up per-gene and per-segment parameters.  The index
         is the current gene whose parameter is getting set up.  The Parameters in question are the
@@ -525,17 +563,26 @@ public class VectorSpecies extends Species
                     base.push(P_DUPLICATE_RETRIES).push(postfix), def.push(P_DUPLICATE_RETRIES).push(postfix));
             }
                         
-        }            
+        }   
+    
+    protected void initializeGenomeSegmentsByStartIndices(final EvolutionState state, 
+            final Parameter base, 
+            final Parameter def,
+            int numSegments)
+            {
+    		this.initializeGenomeSegmentsByStartIndices(state, base, def, numSegments, genomeSize, 0, 0);
+            }
 
     /** Looks up genome segments using start indices.  Segments run up to the next declared start index.  */
     protected void initializeGenomeSegmentsByStartIndices(final EvolutionState state, 
         final Parameter base, 
         final Parameter def,
-        int numSegments)
+        int numSegments,
+        int previousSegmentEnd,
+        int currentSegmentEnd,
+        int expectedStart)
         {
         //loop in reverse order 
-        int previousSegmentEnd = genomeSize;
-        int currentSegmentEnd = 0;
                 
         for (int i = numSegments - 1; i >= 0; i--)
             {
@@ -557,17 +604,17 @@ public class VectorSpecies extends Species
                 }
                         
             //check if the start index is valid
-            if(currentSegmentEnd >= previousSegmentEnd || currentSegmentEnd < 0)
+            if(currentSegmentEnd >= previousSegmentEnd || currentSegmentEnd < expectedStart)
                 state.output.fatal(
                     "Invalid start index value for segment " + i + ": " + currentSegmentEnd 
                     +  "\nThe value must be smaller than " + previousSegmentEnd +
-                    " and greater than or equal to  " + 0);
+                    " and greater than or equal to  " + expectedStart);
                         
             //check if the index of the first segment is equal to 0
-            if(i == 0 && currentSegmentEnd != 0)
+            if(i == 0 && currentSegmentEnd != expectedStart)
                 state.output.fatal(
                     "Invalid start index value for the first segment " + i + ": " + currentSegmentEnd 
-                    +  "\nThe value must be equal to " + 0);
+                    +  "\nThe value must be equal to " + expectedStart);
                         
             //and assign min and max values for all genes in this segment
             for(int j = previousSegmentEnd-1; j >= currentSegmentEnd; j--)
@@ -587,8 +634,17 @@ public class VectorSpecies extends Species
         final Parameter def,
         int numSegments)
         {
-        int previousSegmentEnd = -1;  
-        int currentSegmentEnd = 0;
+    	this.initializeGenomeSegmentsByEndIndices(state, base, def, numSegments, -1, 0, genomeSize-1);
+        }
+    
+    protected void initializeGenomeSegmentsByEndIndices(final EvolutionState state, 
+            final Parameter base, 
+            final Parameter def,
+            int numSegments,
+            int previousSegmentEnd,
+            int currentSegmentEnd,
+            int expectedEnd)
+            {
         // iterate over segments and set genes values for each segment
         for (int i = 0; i < numSegments; i++)
             {
@@ -609,17 +665,17 @@ public class VectorSpecies extends Species
                 }
                         
             //check if the end index is valid
-            if(currentSegmentEnd <= previousSegmentEnd || currentSegmentEnd >= genomeSize)
+            if(currentSegmentEnd <= previousSegmentEnd || currentSegmentEnd > expectedEnd)
                 state.output.fatal(
                     "Invalid end index value for segment " + i + ": " + currentSegmentEnd 
                     +  "\nThe value must be greater than " + previousSegmentEnd +
-                    " and smaller than " + genomeSize);
+                    " and smaller/equal than " + expectedEnd);
                         
             //check if the index of the final segment is equal to the genomeSize
-            if(i == numSegments - 1 && currentSegmentEnd != (genomeSize-1))
+            if(i == numSegments - 1 && currentSegmentEnd != (expectedEnd-1))
                 state.output.fatal(
                     "Invalid end index value for the last segment " + i + ": " + currentSegmentEnd 
-                    +  "\nThe value must be equal to the index of the last gene in the genome:  " + (genomeSize-1));
+                    +  "\nThe value must be equal to the index of the last gene in the genome:  " + (expectedEnd-1));
                         
                         
             //and assign min and max values for all genes in this segment
@@ -630,6 +686,24 @@ public class VectorSpecies extends Species
                         
             previousSegmentEnd = currentSegmentEnd;
             }
+        }
+    
+    
+    protected void initializeGenomeByModuloIndices(final EvolutionState state, 
+        final Parameter base, 
+        final Parameter def,
+        int moduloNum)
+        {
+    		for (int i = 0; i < moduloNum; i++)
+    		{
+    			if (state.parameters.exists(base.push(P_MODULO).push(""+i), def.push(P_MODULO).push(""+i))) 
+    			{
+    				for(int j = i; j < genomeSize; j = j + moduloNum)
+    				{
+    					loadParametersForGene(state, j, base.push(P_MODULO).push(""+i), def.push(P_MODULO).push(""+i), "");    					
+    				}
+    			}
+    		}	
         }
 
 
