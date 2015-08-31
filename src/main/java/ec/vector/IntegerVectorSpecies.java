@@ -306,11 +306,6 @@ public class IntegerVectorSpecies extends VectorSpecies
         System.out.println("Min: " + minGene[i] + ", Max: " + maxGene[i]);
         */
         }
-    
-    protected void dynamicParameterOverride(EvolutionState state, Parameter base, Parameter def)
-    {
-    	//None by default, for subclasses
-    }
 
 
     protected void loadParametersForGene(EvolutionState state, int index, Parameter base, Parameter def, String postfix)

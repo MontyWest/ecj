@@ -523,14 +523,14 @@ public class VectorSpecies extends Species
             }
         state.output.exitIfErrors();          
               
-        dynamicParameterOverride(state, base, def);
+        prePrototypeSetup(state, base, def);
         state.output.exitIfErrors();          
 
         // NOW call super.setup(...), which will in turn set up the prototypical individual
         super.setup(state,base);
         }
 
-    protected void dynamicParameterOverride(EvolutionState state, Parameter base, Parameter def)
+    protected void prePrototypeSetup(EvolutionState state, Parameter base, Parameter def)
     {
     	//None by default, for subclasses
     }
