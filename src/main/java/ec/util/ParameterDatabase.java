@@ -367,7 +367,7 @@ import java.net.*;
  * @version 1.0
  */
 
-public class ParameterDatabase extends Properties implements Serializable 
+public class ParameterDatabase extends Properties implements Serializable, ParameterDatabaseInf
     {
     public static final String C_HERE = "$";
     public static final String C_CLASS = "@";
