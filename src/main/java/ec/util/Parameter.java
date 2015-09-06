@@ -145,5 +145,16 @@ public class Parameter implements Serializable
         {
         return param;
         }
+    
+    public boolean equals(Object obj)
+    	{
+    	if (!(obj instanceof Parameter) || obj == null) {
+    		return false;
+    	} else {
+    		Parameter other = (Parameter)obj;
+    		return this.param.equals(other.param);
+    	}
+    	
+    	}
 
     }
